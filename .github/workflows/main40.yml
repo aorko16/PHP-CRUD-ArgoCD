@@ -16,30 +16,24 @@ env:
 
 jobs:
 
-  # ───────────────
   # 1. Build & Push Docker Image
-  # ───────────────
   build:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.meta.outputs.sha }}
 
     steps:
-      # Checkout code
       - uses: actions/checkout@v4
 
-      # Create short commit SHA (image tag)
-      - name: Generate tag
+      - name: Generate short SHA tag
         id: meta
         run: echo "sha=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
 
-      # DockerHub login
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build & push image
       - uses: docker/build-push-action@v5
         with:
           context: ./crud-CI
@@ -48,57 +42,26 @@ jobs:
             ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}
 
-  # ───────────────
-  # 2. Update Kubernetes Manifest (GitOps for ArgoCD)
-  # ───────────────
+  # 2. Update K8s Deployment (GitOps)
   update-manifest:
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-      # Checkout code
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Update deployment image
-      - name: Update deployment image
+      - name: Update image tag in deployment
         run: |
           NEW_TAG="${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.tag }}"
           sed -i "s|image: .*/php-crud-app:.*|image: $NEW_TAG|g" crud-CD/deployment.yml
-          echo "✅ deployment.yml updated with image: $NEW_TAG"
 
-      # Commit & force push safely
-      - name: Push manifest update
+      - name: Commit & push changes
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add crud-CD/deployment.yml
           git commit -m "update image ${{ needs.build.outputs.tag }}" || echo "no change"
-          
-          # Fetch remote and reset soft
-          git fetch origin main
-          git reset --soft origin/main
-          
-          # Force push the change
-          git push origin main --force
-          echo "✅ deployment.yml pushed to main"
-
-  # ───────────────
-  # 3. Optional EC2 Deploy (Uncomment to use)
-  # ───────────────
-  # deploy:
-  #   runs-on: ubuntu-latest
-  #   needs: update-manifest
-  #
-  #   steps:
-  #     - uses: appleboy/ssh-action@v1.0.3
-  #       with:
-  #         host: ${{ secrets.EC2_HOST }}
-  #         username: ${{ secrets.EC2_USER }}
-  #         key: ${{ secrets.EC2_SSH_KEY }}
-  #         script: |
-  #           cd ~/app/PHP-CRUD-ArgoCD/crud-CI
-  #           git pull origin main
-  #           docker compose pull
-  #           docker compose up -d --force-recreate
+          git pull --rebase origin main
+          git push origin main
