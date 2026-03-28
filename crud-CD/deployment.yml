@@ -1,11 +1,9 @@
-# crud-CD/deployment.yml
 apiVersion: v1
 kind: Namespace
 metadata:
   name: php-crud
-
 ---
-
+# Secret for MySQL
 apiVersion: v1
 kind: Secret
 metadata:
@@ -13,12 +11,11 @@ metadata:
   namespace: php-crud
 type: Opaque
 stringData:
-  mysql-root-password: rootpassword123
+  mysql-root-password: root123
   mysql-user: cruduser
   mysql-password: crudpass
-
 ---
-
+# PersistentVolumeClaim for MySQL
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -27,12 +24,12 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: gp2   # Make sure EKS has this storage class
   resources:
     requests:
       storage: 1Gi
-
 ---
-
+# MySQL Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -60,7 +57,7 @@ spec:
                   name: mysql-secret
                   key: mysql-root-password
             - name: MYSQL_DATABASE
-              value: "cruddb"
+              value: cruddb
             - name: MYSQL_USER
               valueFrom:
                 secretKeyRef:
@@ -78,31 +75,27 @@ spec:
         - name: mysql-storage
           persistentVolumeClaim:
             claimName: mysql-pvc
-
 ---
-
+# MySQL Service
 apiVersion: v1
 kind: Service
 metadata:
   name: mysql-service
   namespace: php-crud
 spec:
+  type: ClusterIP
   selector:
     app: mysql
-  type: ClusterIP
   ports:
     - port: 3306
       targetPort: 3306
-
 ---
-
+# PHP CRUD App Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: php-crud-app
   namespace: php-crud
-  labels:
-    app: php-crud
 spec:
   replicas: 2
   selector:
@@ -115,14 +108,14 @@ spec:
     spec:
       containers:
         - name: php-crud
-          image: aorko16/php-crud-app:d11f66c
+          image: aorko16/php-crud-app:latest
           ports:
             - containerPort: 80
           env:
             - name: DB_HOST
-              value: "mysql-service"
+              value: mysql-service
             - name: DB_NAME
-              value: "cruddb"
+              value: cruddb
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
@@ -152,18 +145,17 @@ spec:
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 10
-
 ---
-
+# PHP CRUD App Service
 apiVersion: v1
 kind: Service
 metadata:
   name: php-crud-service
   namespace: php-crud
 spec:
+  type: LoadBalancer
   selector:
     app: php-crud
-  type: LoadBalancer
   ports:
     - port: 80
       targetPort: 80
