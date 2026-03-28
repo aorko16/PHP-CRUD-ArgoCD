@@ -297,7 +297,7 @@ $total = count($users);
 
 <header>
   <span class="logo-badge">ARGOCD</span>
-  <h1>PHP CRUD CICD Deploy -- AWStrrrrrrrrreaaaaaaaaaaaaaa ec27777777777-------- </h1>
+  <h1>PHP CRUD CICD uuoiooooooooooooooo </h1>
   <span>v1.0.0 · <?= date('Y-m-d') ?></span>
 </header>
 
