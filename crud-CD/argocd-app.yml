@@ -3,34 +3,20 @@ kind: Application
 metadata:
   name: php-crud-app
   namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io   # Cleanup on delete
+
 spec:
   project: default
 
-  # ─── Source: Git repo pointing to crud-CD/ folder ───
   source:
-    repoURL: https://github.com/YOUR_USERNAME/php-crud-argoCD   # ← Change this!
-    targetRevision: HEAD
-    path: crud-CD          # Folder containing K8s manifests
+    repoURL: https://github.com/aorko16/PHP-CRUD-ArgoCD.git
+    targetRevision: main
+    path: crud-CD
 
-  # ─── Destination: Kubernetes cluster ───
   destination:
     server: https://kubernetes.default.svc
     namespace: php-crud
 
-  # ─── Sync Policy: Fully automated GitOps ───
   syncPolicy:
     automated:
-      prune: true          # Remove resources deleted from Git
-      selfHeal: true       # Auto-revert manual kubectl changes
-    syncOptions:
-      - CreateNamespace=true   # Auto-create php-crud namespace
-      - PrunePropagationPolicy=foreground
-      - PruneLast=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        factor: 2
-        maxDuration: 3m
+      prune: true
+      selfHeal: true
