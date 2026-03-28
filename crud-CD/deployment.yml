@@ -5,7 +5,6 @@ metadata:
   namespace: php-crud
   labels:
     app: php-crud
-    version: "1.0.0"
 spec:
   replicas: 2
   selector:
@@ -18,12 +17,12 @@ spec:
     spec:
       containers:
         - name: php-crud
-          image: aorko16/php-crud-app:5f3497f
+          image: aorko16/php-crud-app:latest
           ports:
             - containerPort: 80
           env:
             - name: DB_HOST
-              value: "mysql-service"       # MySQL service name
+              value: "mysql-service"
             - name: DB_NAME
               value: "cruddb"
             - name: DB_USER
@@ -64,6 +63,8 @@ kind: Deployment
 metadata:
   name: mysql
   namespace: php-crud
+  labels:
+    app: mysql
 spec:
   replicas: 1
   selector:
@@ -114,6 +115,23 @@ spec:
 
 ---
 
+# MySQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: php-crud
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+  type: ClusterIP
+
+---
+
 # PersistentVolumeClaim for MySQL
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -129,34 +147,17 @@ spec:
 
 ---
 
-# PHP Service
+# PHP CRUD Service
 apiVersion: v1
 kind: Service
 metadata:
   name: php-crud-service
   namespace: php-crud
 spec:
-  type: LoadBalancer  # Use NodePort if testing locally
   selector:
     app: php-crud
   ports:
     - protocol: TCP
       port: 80
       targetPort: 80
-
----
-
-# MySQL Internal Service
-apiVersion: v1
-kind: Service
-metadata:
-  name: mysql-service
-  namespace: php-crud
-spec:
-  type: ClusterIP  # Internal only
-  selector:
-    app: mysql
-  ports:
-    - protocol: TCP
-      port: 3306
-      targetPort: 3306
+  type: ClusterIP
