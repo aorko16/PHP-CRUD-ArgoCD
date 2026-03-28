@@ -1,7 +1,7 @@
 services:
 
   app:
-    image: aorko16/php-crud-app:latest   # 👈 CI will auto-update this
+    image: aorko16/php-crud-app:b8913df
     container_name: php-crud-app
     ports:
       - "8080:80"
