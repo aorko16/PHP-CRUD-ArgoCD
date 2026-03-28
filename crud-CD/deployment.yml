@@ -19,7 +19,7 @@ spec:
       containers:
         - name: php-crud
           # ⬇️ GitHub Actions CI will auto-update this image tag
-          image: aorko16/php-crud-app:latest
+          image: aorko16/php-crud-app:3e823e1
           ports:
             - containerPort: 80
           env:
