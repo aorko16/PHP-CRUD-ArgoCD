@@ -1,5 +1,5 @@
 <?php
-// ─── DB Connection ───────────────────────────────────────────────
+// ─── DDB Connection ───────────────────────────────────────────────
 $host = getenv('DB_HOST')     ?: 'mysql';
 $db   = getenv('DB_NAME')     ?: 'cruddb';
 $user = getenv('DB_USER')     ?: 'root';
