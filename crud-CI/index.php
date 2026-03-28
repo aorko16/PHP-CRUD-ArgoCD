@@ -297,7 +297,7 @@ $total = count($users);
 
 <header>
   <span class="logo-badge">ARGOCD</span>
-  <h1>PHP CRUD V1 Tesing Demo</h1>
+  <h1>PHP CRUD V22 Testing Demo</h1>
   <span>v1.0.0 · <?= date('Y-m-d') ?></span>
 </header>
 
