@@ -1,0 +1,96 @@
+name: CI/CD → DockerHub + EC2-30
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - crud-CI/**
+
+# ✅ allow GitHub Actions to push code
+permissions:
+  contents: write
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  IMAGE_NAME: php-crud-app
+
+jobs:
+
+  # ───────────────
+  # 1. BUILD & PUSH IMAGE
+  # ───────────────
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.sha }}
+
+    steps:
+      # 📥 Get code
+      - uses: actions/checkout@v4
+
+      # 🏷️ Create short commit SHA (image tag)
+      - name: Generate tag
+        id: meta
+        run: echo "sha=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      # 🔐 Login to DockerHub
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 🏗️ Build & push image
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./crud-CI
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}
+
+  # ───────────────
+  # 2. UPDATE DOCKER-COMPOSE
+  # ───────────────
+  update:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      # 📥 Checkout with push permission
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ✏️ Update image tag in docker-compose.yml
+      - name: Update image
+        run: |
+          sed -i "s|image: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:.*|image: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.tag }}|g" crud-CI/docker-compose.yml
+
+      # 📤 Commit & push change
+      - name: Push change
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add crud-CI/docker-compose.yml
+          git commit -m "update image tag ${{ needs.build.outputs.tag }}" || echo "no change"
+          git push origin main
+
+  # ───────────────
+  # 3. DEPLOY TO EC2
+  # ───────────────
+  deploy:
+    runs-on: ubuntu-latest
+    needs: update
+
+    steps:
+      # 🔑 SSH into EC2 and deploy
+      - uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/app/PHP-CRUD-ArgoCD/crud-CI
+            git pull origin main
+            docker compose pull
+            docker compose up -d --force-recreate
