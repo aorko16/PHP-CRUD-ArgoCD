@@ -1,0 +1,61 @@
+services:
+
+  app:
+    image: aorko16/php-crud-app:latest   # 👈 CI will auto-update this
+    container_name: php-crud-app
+    ports:
+      - "8080:80"
+    environment:
+      DB_HOST: mysql
+      DB_NAME: cruddb
+      DB_USER: cruduser
+      DB_PASSWORD: crudpassword
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - crud-network
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: php-crud-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: cruddb
+      MYSQL_USER: cruduser
+      MYSQL_PASSWORD: crudpassword
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - crud-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: php-crud-phpmyadmin
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: cruduser
+      PMA_PASSWORD: crudpassword
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - crud-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+
+networks:
+  crud-network:
