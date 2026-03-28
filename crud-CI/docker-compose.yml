@@ -1,7 +1,7 @@
 services:
 
   app:
-    image: aorko16/php-crud-app:2118ef8
+    image: aorko16/php-crud-app:5089d6a
     container_name: php-crud-app
     ports:
       - "8080:80"
