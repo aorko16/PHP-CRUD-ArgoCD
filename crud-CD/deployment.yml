@@ -115,7 +115,7 @@ spec:
     spec:
       containers:
         - name: php-crud
-          image: aorko16/php-crud-app:latest # GitHub Actions will update this
+          image: aorko16/php-crud-app:5062ef5
           ports:
             - containerPort: 80
           env:
