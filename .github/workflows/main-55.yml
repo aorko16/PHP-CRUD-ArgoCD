@@ -1,0 +1,114 @@
+name: CI → Build & Push to DockerHub and Compose
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - crud-CI/**
+
+permissions:
+  contents: write
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  IMAGE_NAME: php-crud-app
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1: Build & Push Docker Image
+  # ─────────────────────────────────────────────
+  build-and-push:
+    name: 🐳 Build & Push to DockerHub
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.short_sha }}
+
+    steps:
+      - name: ✅ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Generate image tag (short SHA)
+        id: meta
+        run: echo "short_sha=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: 🔨 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 🚀 Build & Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./crud-CI
+          file: ./crud-CI/Dockerfile
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }}
+
+      - name: 📋 Image push summary
+        run: |
+          echo "✅ Image pushed:"
+          echo "  → ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest"
+          echo "  → ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }}"
+
+  # ─────────────────────────────────────────────
+  # JOB 2: Update docker-compose.yml (GitOps)
+  # ─────────────────────────────────────────────
+  update-compose:
+    name: 📝 Update Docker Compose Image Tag
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: ✅ Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 🔄 Update image tag in docker-compose.yml
+        run: |
+          sed -i "s|image: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:.*|image: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}|g" crud-CI/docker-compose.yml
+
+      - name: 🔍 Show updated file
+        run: cat crud-CI/docker-compose.yml
+
+      - name: 📤 Commit & push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add crud-CI/docker-compose.yml
+          git commit -m "chore: update image tag to ${{ needs.build-and-push.outputs.image_tag }} [skip ci]" || echo "No changes to commit"
+          git push
+
+  # ─────────────────────────────────────────────
+  # JOB 3: Update deployment.yml (ArgoCD GitOps)
+  # ─────────────────────────────────────────────
+  update-deployment:
+    name: 🚢 Update K8s Deployment Image Tag
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: ✅ Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 🔄 Update image tag in deployment.yml
+        run: |
+          sed -i "s|image: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:.*|image: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}|g" crud-CD/deployment.yml
+
+      - name: 🔍 Show updated file
+        run: cat crud-CD/deployment.yml
+
+      - name: 📤 Commit & push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add crud-CD/deployment.yml
+          git commit -m "chore: update k8s image tag to ${{ needs.build-and-push.outputs.image_tag }} [skip ci]" || echo "No changes to commit"
+          git push
