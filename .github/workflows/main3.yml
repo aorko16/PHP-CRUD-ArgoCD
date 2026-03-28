@@ -65,10 +65,11 @@ jobs:
     needs: build-and-push
 
     steps:
-      - name: 📥 Checkout repo
+      - name: 📥 Checkout ArgoCD repo        # 👈 checkout the TARGET repo
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}   # ✅ use built-in token for push
+          repository: YOUR_USERNAME/PHP-CRUD-ArgoCD   # 👈 target repo
+          token: ${{ secrets.ARGOCD_REPO_TOKEN }}      # 👈 PAT, not GITHUB_TOKEN
 
       - name: ✏️ Update image tag in docker-compose.yml
         run: |
