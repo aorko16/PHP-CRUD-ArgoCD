@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: php-crud
-          image: aorko16/php-crud-app:b0d4bae
+          image: aorko16/php-crud-app:ff3ec29
           ports:
             - containerPort: 80
           env:
