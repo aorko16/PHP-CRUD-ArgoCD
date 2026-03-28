@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: php-crud
-          image: aorko16/php-crud-app:latest  # ArgoCD / CI will update this tag automatically
+          image: aorko16/php-crud-app:5f3497f
           ports:
             - containerPort: 80
           env:
