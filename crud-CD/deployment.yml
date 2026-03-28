@@ -18,13 +18,12 @@ spec:
     spec:
       containers:
         - name: php-crud
-          # ⬇️ GitHub Actions CI will auto-update this image tag
-          image: aorko16/php-crud-app:3e823e1
+          image: aorko16/php-crud-app:latest  # ArgoCD / CI will update this tag automatically
           ports:
             - containerPort: 80
           env:
             - name: DB_HOST
-              value: "mysql-service"
+              value: "mysql-service"       # MySQL service name
             - name: DB_NAME
               value: "cruddb"
             - name: DB_USER
@@ -58,6 +57,7 @@ spec:
             periodSeconds: 10
 
 ---
+
 # MySQL Deployment
 apiVersion: apps/v1
 kind: Deployment
@@ -113,7 +113,8 @@ spec:
             claimName: mysql-pvc
 
 ---
-# PersistentVolumeClaim for MySQL data
+
+# PersistentVolumeClaim for MySQL
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -125,3 +126,37 @@ spec:
   resources:
     requests:
       storage: 1Gi
+
+---
+
+# PHP Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-crud-service
+  namespace: php-crud
+spec:
+  type: LoadBalancer  # Use NodePort if testing locally
+  selector:
+    app: php-crud
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+
+---
+
+# MySQL Internal Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: php-crud
+spec:
+  type: ClusterIP  # Internal only
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
