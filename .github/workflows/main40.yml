@@ -1,0 +1,65 @@
+name: CI/CD → DockerHub + ArgoCD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - crud-CI/**
+      - crud-CD/**
+
+permissions:
+  contents: write
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  IMAGE_NAME: php-crud-app
+
+jobs:
+
+  # 1. Build & Push
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate tag
+        id: meta
+        run: echo "sha=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: ./crud-CI
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha }}
+
+  # 2. Update Manifest (GitOps)
+  update-manifest:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update image
+        run: |
+          sed -i "s|image: .*/php-crud-app:.*|image: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.tag }}|g" crud-CD/deployment.yml
+
+      - name: Push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add crud-CD/deployment.yml
+          git commit -m "update image ${{ needs.build.outputs.tag }}" || echo "no change"
+          git push origin main
