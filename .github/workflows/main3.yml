@@ -1,4 +1,4 @@
-name: CI → Build & Push to DockerHub 33
+name: CI → Build & Push to DockerHub-333
 
 on:
   push:
@@ -65,10 +65,10 @@ jobs:
     needs: build-and-push
 
     steps:
-      - name: 📥 Checkout repo (with push permissions)
+      - name: 📥 Checkout repo
         uses: actions/checkout@v4
         with:
-          persist-credentials: true   # ✅ allows pushing with GITHUB_TOKEN
+          token: ${{ secrets.GITHUB_TOKEN }}   # ✅ use built-in token for push
 
       - name: ✏️ Update image tag in docker-compose.yml
         run: |
@@ -83,4 +83,4 @@ jobs:
           git config user.email "actions@github.com"
           git add crud-CI/docker-compose.yml
           git commit -m "Update image tag to ${{ needs.build-and-push.outputs.image_tag }}" || echo "No changes to commit"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/aorko16/PHP-CRUD-ArgoCD.git HEAD:main
+          git push origin main
